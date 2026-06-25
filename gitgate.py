@@ -24,18 +24,28 @@ def main():
         sys.exit(0)
 
     # 2. Capture the staged code changes
-    diff_output = ""
+    # 2. Capture the staged code changes (Filtered to ignore deletions)
+    raw_diff = ""
     for flag in [["git", "diff", "--staged"], ["git", "diff", "--cached"]]:
         try:
-            diff_output = subprocess.check_output(flag, stderr=subprocess.DEVNULL).decode("utf-8")
-            if diff_output.strip():
+            raw_diff = subprocess.check_output(flag, stderr=subprocess.DEVNULL).decode("utf-8")
+            if raw_diff.strip():
                 break
         except Exception:
             continue
             
-    if not diff_output.strip():
+    if not raw_diff.strip():
         console.print(f"[{CLAUDE_ORANGE}]gitGate •[/{CLAUDE_ORANGE}] No staged changes found to analyze.")
         sys.exit(0)
+
+    # FILTER: Remove any lines that start with '-' so the AI doesn't flag deleted secrets
+    clean_diff_lines = []
+    for line in raw_diff.split("\n"):
+        if line.startswith("-") and not line.startswith("---"):
+            continue # Skip deleted lines!
+        clean_diff_lines.append(line)
+    
+    diff_output = "\n".join(clean_diff_lines)
 
     # 3. Read the Markdown Instruction file
     home_dir = os.path.expanduser("~")
